@@ -1,0 +1,44 @@
+ --------                               -------
+|        | +-------------------------->|       |<-------------------+
+| INIT-  | |     +-------------------->| INIT  |                    |
+| REBOOT |DHCPNAK/         +---------->|       |<---+               |
+|        |Restart|         |            -------     |               |
+ --------  |  DHCPNAK/     |               |                        |
+    |      Discard offer   |      -/Send DHCPDISCOVER               |
+-/Send DHCPREQUEST         |               |                        |
+    |      |     |      DHCPACK            v        |               |
+ -----------     |   (not accept.)/   -----------   |               |
+|           |    |  Send DHCPDECLINE |           |                  |
+| REBOOTING |    |         |         | SELECTING |<----+            |
+|           |    |        /          |           |     |DHCPOFFER/  |
+ -----------     |       /            -----------   |  |Collect     |
+    |            |      /                  |   |       |  replies   |
+DHCPACK/         |     /  +----------------+   +-------+            |
+Record lease, set|    |   v   Select offer/                         |
+timers T1, T2   ------------  send DHCPREQUEST      |               |
+    |   +----->|            |             DHCPNAK, Lease expired/   |
+    |   |      | REQUESTING |                  Halt network         |
+    DHCPOFFER/ |            |                       |               |
+    Discard     ------------                        |               |
+    |   |        |        |                   -----------           |
+    |   +--------+     DHCPACK/              |           |          |
+    |              Record lease, set    -----| REBINDING |          |
+    |                timers T1, T2     /     |           |          |
+    |                     |        DHCPACK/   -----------           |
+    |                     v     Record lease, set   ^               |
+    +----------------> -------      /timers T1,T2   |               |
+               +----->|       |<---+                |               |
+               |      | BOUND |<---+                |               |
+  DHCPOFFER, DHCPACK, |       |    |            T2 expires/   DHCPNAK/
+   DHCPNAK/Discard     -------     |             Broadcast  Halt network
+               |       | |         |            DHCPREQUEST         |
+               +-------+ |        DHCPACK/          |               |
+                    T1 expires/   Record lease, set |               |
+                 Send DHCPREQUEST timers T1, T2     |               |
+                 to leasing server |                |               |
+                         |   ----------             |               |
+                         |  |          |------------+               |
+                         +->| RENEWING |                            |
+                            |          |----------------------------+
+                             ----------
+          Figure 5:  State-transition diagram for DHCP clients
