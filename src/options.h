@@ -1,8 +1,5 @@
 #define TIMER_TICS_IN_SECOND
 
-#define PORT_SRV 67
-#define PORT_CLI 68
-
 #define STATE_INIT  0
 #define STATE_SELECTING 1
 #define STATE_REQUESTING 2
@@ -23,7 +20,6 @@
 #define DHCPINFORM   8
 
 #define OP_DISCOVER 1
-
 
 //typedef struct
 //{
@@ -55,12 +51,6 @@
 //    void * option_51;
 //    void * option_54;
 //} OH_Ack;
-//
-//
-//
-//
-//
-//
 //
 //
 ///*
