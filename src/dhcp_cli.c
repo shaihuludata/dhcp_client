@@ -29,7 +29,7 @@ int main(int argc, char * argv[])
     int state = STATE_INIT;
     int seed = time(NULL);
     srand(seed);
-    int T1 = rand() % 10 + 1;
+    int T1 = rand() % 1 + 1;
 //    int T2 = 0;
     int timer = 0;
 	dhcp_ data;
@@ -61,7 +61,7 @@ int main(int argc, char * argv[])
                 timer = 10;
                 if (timer >= T1)
                 {
-					if (send_raw_udp_message(sizeof(data), (char *)&data, "0.0.0.0", "255.255.255.255") < 0)
+					if (send_raw_message(sizeof(data), (char *)&data, "0.0.0.0", "255.255.255.255") < 0)
 						perror("Failed to send message");
 					else
 					{
