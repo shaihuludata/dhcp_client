@@ -13,6 +13,7 @@
 
 #include "options.h"
 #include "udp_raw.h"
+#include "dhcp.h"
 
 int send_raw_message(int data_len, char * data, char source_ip[32], char destination_ip[32])
 {
@@ -56,7 +57,7 @@ int send_raw_message(int data_len, char * data, char source_ip[32], char destina
 	memcpy(pseudogram + sizeof(struct pseudo_header), udph, sizeof(struct udphdr) + strlen(data));
 
 	sin.sin_family = AF_INET;
-	sin.sin_port = htons(PORT_CLI);
+	sin.sin_port = htons(DHCP_PORT_CLI);
 	//sin.sin_addr.s_addr = inet_addr (destination_ip);
 	inet_aton (destination_ip, &sin.sin_addr);
 
@@ -76,8 +77,8 @@ int send_raw_message(int data_len, char * data, char source_ip[32], char destina
 	iph->daddr = sin.sin_addr.s_addr;
 	iph->check = csum ((unsigned short *) datagram, iph->tot_len);
 
-	udph->source = htons (PORT_CLI);
-	udph->dest = htons (PORT_SRV);
+	udph->source = htons (DHCP_PORT_CLI);
+	udph->dest = htons (DHCP_PORT_SRV);
 	udph->len = htons(8+strlen(data)); //8 - udp header size
 	udph->check = 0;
 

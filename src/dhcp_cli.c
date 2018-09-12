@@ -21,6 +21,7 @@
 #include "dhcp.h"
 #include "options.h"
 #include "udp_raw.h"
+#include "l2_raw.h"
 
 #define CPS 40
 
@@ -61,7 +62,7 @@ int main(int argc, char * argv[])
                 timer = 10;
                 if (timer >= T1)
                 {
-					if (send_raw_message(sizeof(data), (char *)&data, "0.0.0.0", "255.255.255.255") < 0)
+					if (send_l2_raw_message(sizeof(data), (char *)&data, "0.0.0.0", "255.255.255.255", "enp3s6") < 0)
 						perror("Failed to send message");
 					else
 					{

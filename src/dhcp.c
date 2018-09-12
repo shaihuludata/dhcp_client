@@ -24,6 +24,7 @@ dhcp_ compose_discover(int a) {
 //	option_50.len = 4;
 //	option_50.data = inet_aton("0.0.0.0", &addr);
 //	data.options[1] = option_50;
+
     return data;
 }
 

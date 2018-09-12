@@ -21,6 +21,8 @@
 
 #define OP_DISCOVER 1
 
+#define DISCOVER_TIMEOUT_SEC 3
+
 //typedef struct
 //{
 //    void * option_53;
