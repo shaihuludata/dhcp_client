@@ -1,27 +1,23 @@
 #define TIMER_TICS_IN_SECOND
 
-#define STATE_INIT  0
-#define STATE_SELECTING 1
-#define STATE_REQUESTING 2
-#define STATE_BOUND 3
-#define STATE_REBINDING 4
-#define STATE_RENEWING 5
+#define STATE_INIT_REBOOT	0
+#define STATE_REBOOTING		1
+#define STATE_INIT			2
+#define STATE_SELECTING		3
+#define STATE_REQUESTING	4
+#define STATE_BOUND			5
+#define STATE_REBINDING		6
+#define STATE_RENEWING		7
 
 #define HTYPE 1
 #define HLEN 6
 
-#define DHCPDISCOVER 1
-#define DHCPOFFER    2
-#define DHCPREQUEST  3
-#define DHCPDECLINE  4
-#define DHCPACK      5
-#define DHCPNAK      6
-#define DHCPRELEASE  7
-#define DHCPINFORM   8
+#define TIMEOUT_DISCOVER_SEC 3
+#define TIMEOUT_REQUESTING_SEC 3
+#define TIMEOUT_BOUND_SEC 3
 
-#define OP_DISCOVER 1
-
-#define DISCOVER_TIMEOUT_SEC 3
+#define IP_NULL "0.0.0.0"
+#define IP_BROAD "255.255.255.255"
 
 //typedef struct
 //{
@@ -37,14 +33,7 @@
 //    void * option_51;
 //    void * option_54;
 //} OH_Offer;
-//
-//typedef struct
-//{
-//    void * option_53;
-//    void * option_50;
-//    void * option_54;
-//} OH_Request;
-//
+
 //typedef struct
 //{
 //    void * option_53;
@@ -74,32 +63,42 @@
 //    char len;
 //    int data;
 //} option_3;
-//
-//typedef struct
-//{
-//    char code = 50;
-//    char len = 4;
-//    int data;
-//} option_50;
-//
-//typedef struct
-//{
-//    char code = 51;
-//    char len = 4;
-//    unsigned int data;
-//} option_51;
-//
-//
-//typedef struct
-//{
-//    char code = 53;
-//    char len = 1;
-//    int data;
-//} option_53;
-//
-//typedef struct
-//{
-//    char code = 54;
-//    char len = 4;
-//    int data;
-//} option_54;
+
+#pragma pack(push, 1)
+typedef struct
+{
+    char code;
+    char len;
+    int data;
+} option_50;
+
+typedef struct
+{
+    char code;
+    char len;
+    unsigned int data;
+} option_51;
+
+typedef struct
+{
+    char code;
+    char len;
+    char data;
+} option_53;
+
+typedef struct
+{
+    char code;
+    char len;
+    int data;
+} option_54;
+
+typedef struct
+{
+	int cookie;
+    option_53 option_53;
+    option_50 option_50;
+    option_54 option_54;
+    char option_255;
+} options_Request;
+#pragma pack(pop)

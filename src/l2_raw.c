@@ -76,12 +76,15 @@ int init_socket (int * sfds)
 	return 0;
 }
 
-
-int send_l2_raw_message(int data_len, char * data, char source_ip[32], char destination_ip[32], char interface_name[10])
+int send_l2_raw_message(unsigned int data_len, char * payload, char source_ip[32], char destination_ip[32],
+		char interface_name[10], char source_mac[6], char destination_mac[6])
 {
 	int socket_fds[3];
 	init_socket(socket_fds);
 	int send_sfd = socket_fds[2];
+	char data[data_len];
+	memset (&data, 0, data_len);
+	memcpy(data, payload, data_len);
 
 	char frame[1500];
 	struct ethhdr * ethh = (struct ethhdr *) &frame[0];
@@ -91,7 +94,7 @@ int send_l2_raw_message(int data_len, char * data, char source_ip[32], char dest
 	int f_size = sizeof(ethh) + sizeof(iph) + sizeof(udph) + sizeof(data);
 
 	memset (frame, 0, f_size);
-	strncpy(&frame[sizeof(*ethh) + sizeof(*udph) + sizeof(*iph)], data, sizeof(data)-1);
+	memcpy(&frame[sizeof(*ethh) + sizeof(*udph) + sizeof(*iph)], data, sizeof(data));
 
 //	struct sockaddr_in * sin = malloc(sizeof(struct sockaddr_in));
 //	memset(sin, 0, sizeof(*sin));
@@ -114,45 +117,19 @@ int send_l2_raw_message(int data_len, char * data, char source_ip[32], char dest
 	//sin.sin_addr.s_addr = inet_addr (destination_ip);
 	//inet_aton (destination_ip, &sin->sin_addr);
 
-//	memset(buf, 0xff, 6);
-//	memcpy(buf + 6, network_interface->addr, 6);
-//	buf[12] = 0x08;
-//	buf[13] = 0x00;
-
 //	struct if_nameindex *interfaces = if_nameindex();
 //	struct if_nameindex *interface;
-	int fd = socket(AF_INET, SOCK_DGRAM, 0);
 
-	struct ifreq ifopt;
-	memset(&ifopt, 0, sizeof(ifopt));
-	strcpy(ifopt.ifr_name, interface_name);
-	if (ioctl(fd, SIOCGIFHWADDR, &ifopt) == -1)
-	{
-		perror("Failed to get MAC address of %s");//, interface_name);
-		exit(4);
-	}
-//	char s_addr[6] = {0};
-
-//	ethh->h_dest = s_addr;
-	//strncpy(s_addr, ifopt.ifr_hwaddr.sa_data, 6);
-	//ethh->h_dest = {&0xFF, &0xFF, &0xFF, &0xFF, &0xFF, &0xFF};
-
-//блин, как это коротко записать???
-	//ethh->h_dest = 0xFFFFFFFFFFFF; не сработало
-	ethh->h_dest[0] = 0xFF;
-	ethh->h_dest[1] = 0xFF;
-	ethh->h_dest[2] = 0xFF;
-	ethh->h_dest[3] = 0xFF;
-	ethh->h_dest[4] = 0xFF;
-	ethh->h_dest[5] = 0xFF;
-	//strncpy((char *)ethh->h_source, ifopt.ifr_hwaddr.sa_data, 6);
-	memcpy((char *)ethh->h_source, ifopt.ifr_hwaddr.sa_data, 6);
+//	ethh->h_dest = htons(*destination_mac);
+	memcpy((char *)ethh->h_dest, destination_mac, 6);
+	memcpy((char *)ethh->h_source, source_mac, 6);
+	//memcpy((char *)ethh->h_source, ifopt.ifr_hwaddr.sa_data, 6);
 	ethh->h_proto = htons(0x0800);
 
 	iph->ihl = 5;
 	iph->version = 4;
 	iph->tos = 0;
-	iph->tot_len = sizeof (*iph) + sizeof (*udph) + strlen(data);
+	iph->tot_len = htons(sizeof (*iph) + sizeof (*udph) + data_len);
 	iph->id = htons (54321); //Id of this packet
 	iph->frag_off = 0;
 	iph->ttl = 1;
@@ -162,11 +139,11 @@ int send_l2_raw_message(int data_len, char * data, char source_ip[32], char dest
 	struct in_addr saddr;
 	inet_aton (source_ip, &saddr);    //Spoof the source ip address
 	iph->saddr = saddr.s_addr;
-	iph->daddr = inet_addr (destination_ip);//sin->sin_addr.s_addr;
+	iph->daddr = inet_addr (destination_ip); //sin->sin_addr.s_addr;
 
 	udph->source = htons (DHCP_PORT_CLI);
 	udph->dest = htons (DHCP_PORT_SRV);
-	udph->len = htons(8+strlen(data)); //8 - udp header size
+	udph->len = htons(L4_HDR_SIZE+data_len); //8 - udp header size
 	udph->check = 0;
 
 	//struct pseudo_header psh;
@@ -190,7 +167,7 @@ int send_l2_raw_message(int data_len, char * data, char source_ip[32], char dest
 	int ret;
 	//ret = sendto(send_sfd, frame, iph->tot_len,  0, (struct sockaddr *) &sin, sizeof (sin));
 
-	size_t total_len = sizeof (*ethh) + sizeof (*iph) + sizeof (*udph) + strlen(data);
+	size_t total_len = sizeof (*ethh) + sizeof (*iph) + sizeof (*udph) + sizeof(data);
 	ret = sendto(send_sfd, &frame[0], total_len,  0, (struct sockaddr *) sin, sizeof (*sin));
 	printf("%d\n", ret);
 
