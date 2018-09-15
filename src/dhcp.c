@@ -45,11 +45,11 @@
 //	dhcp_ data = common_overhead(arg);
 //	return data;
 //}
-//
-unsigned int compose_request(int xid, char * source_mac, void * buf)
+
+unsigned int compose_request(int xid, char * source_mac, void * buf, char req_ip[4], char req_srv[15])
 {
 	dhcp_ * data = (dhcp_ *) buf;
-	//memset (&data, 0, sizeof(data));
+
 	data->op = OP_REQUEST;
 	data->htype = HTYPE;
 	data->hlen = HLEN;
@@ -72,26 +72,24 @@ unsigned int compose_request(int xid, char * source_mac, void * buf)
 	//char data->sname[128];
 	memset(data->file, 0, sizeof(data->file));
 	//236
-
-	//memset(data->options, 0, sizeof(options_Request));
-	// = {.code = 53, .len = 1, .data = TYPE_DHCPREQUEST};
-	//3+6+6+4 = 19
 	options_Request * options = (options_Request *)  (buf+sizeof(*data));
-	//option53= {.code = 53, .len = 1, .data = TYPE_DHCPREQUEST};
 	options->cookie = MAGIC_COOKIE_DHCP;
 	options->option_53.code = 53;
 	options->option_53.len = 1;
 	options->option_53.data = TYPE_DHCPREQUEST;
 	options->option_50.code = 50;
 	options->option_50.len = 4;
-	options->option_50.data = inet_addr("0.0.0.0"); // TODO: исправить
+	options->option_50.data = inet_addr(req_ip); // TODO: исправить
 	options->option_54.code = 54;
 	options->option_54.len = 4;
-	options->option_54.data = inet_addr("0.0.0.0"); // TODO: исправить
+	options->option_54.data = inet_addr(req_srv); // TODO: исправить
+	options->option_55.code = 55;
+	options->option_55.len = 4;
+	options->option_55.data = 0x2a060301; // 1 - subnet, 3 - router, 6 - dns, 42 - ntps
 	options->option_255 = 0xFF;
-
+	// 255
 	size_t total_size = sizeof(*data) + sizeof(*options);
-	return total_size; // 255
+	return total_size;
 }
 //
 //dhcp_ * dispatch_ack(void * arg)

@@ -21,6 +21,131 @@
 #include "l2_raw.h"
 #include "dhcp.h"
 
+//unsigned short csum(unsigned short *ptr,int nbytes)
+//{
+//    register long sum;
+//    unsigned short oddbyte;
+//    register short answer;
+//
+//    sum=0;
+//    while(nbytes>1) {
+//        sum+=*ptr++;
+//        nbytes-=2;
+//    }
+//    if(nbytes==1) {
+//        oddbyte=0;
+//        *((u_char*)&oddbyte)=*(u_char*)ptr;
+//        sum+=oddbyte;
+//    }
+//
+//    sum = (sum>>16)+(sum & 0xffff);
+//    sum = sum + (sum>>16);
+//    answer=(short)~sum;
+//
+//    return(answer);
+//}
+
+//unsigned short udp_csum(unsigned short *buf, int nwords)
+//{       //
+//        unsigned long sum;
+//        for(sum=0; nwords>0; nwords--)
+//                sum += *buf++;
+//        sum = (sum >> 16) + (sum &0xffff);
+//        sum += (sum >> 16);
+//        return (unsigned short)(~sum);
+//}
+
+unsigned short csum(uint16_t *addr, short len)
+{
+	int sum = 0;
+	uint16_t *w = addr;
+	uint16_t answer = 0;
+
+	while (len > 1) {
+		sum += *w++;
+		len -= sizeof (uint16_t);
+	}
+
+	if (len == 1) {
+		*(uint8_t *) (&answer) = *(uint8_t *) w;
+		sum += answer;
+	}
+
+	sum = (sum >> 16) + (sum & 0xFFFF);
+	sum += (sum >> 16);
+	answer = ~sum;
+	return (answer);
+}
+
+//unsigned short udp_csum(struct iphdr * iph, struct udphdr * udph, short datagram_size)
+//{
+//	short psize = sizeof(struct pseudo_header) + datagram_size;
+//	char * pseudogram = malloc(psize);
+//	struct pseudo_header * psh = (struct pseudo_header *) pseudogram;
+//	psh->source_address = ntohl(iph->saddr);
+//	psh->dest_address = ntohl(iph->daddr);
+//	psh->placeholder = 0;
+//	psh->protocol = IPPROTO_UDP;
+//	psh->udp_length = ntohs(udph->len);
+//
+//	memcpy(pseudogram + sizeof(*psh), udph, datagram_size);
+//
+//	int checksum = 0;
+//	short * hptr = (short * ) pseudogram;
+//
+//	while (psize > 1) {
+//		checksum += *(hptr++);
+//		psize -= sizeof(psize);
+//	}
+//	if (psize & 1) {
+//		checksum += *((uint8_t *)hptr++);
+//	}
+//
+//	while (checksum >> 16)
+//		checksum = (checksum & 0xFFFF) + (checksum >> 16);
+//
+//	return ((short)~checksum);
+//}
+
+unsigned short udp_csum(const void * buff, size_t len, in_addr_t src_addr, in_addr_t dest_addr)
+{
+        const uint16_t *buf=buff;
+        uint16_t *ip_src=(void *)&src_addr, *ip_dst=(void *)&dest_addr;
+        uint32_t sum;
+        size_t length=len;
+
+        // Calculate the sum                                            //
+        sum = 0;
+        while (len > 1)
+        {
+                sum += *buf++;
+                if (sum & 0x80000000)
+                        sum = (sum & 0xFFFF) + (sum >> 16);
+                len -= 2;
+        }
+
+        if ( len & 1 )
+                // Add the padding if the packet lenght is odd          //
+                sum += *((uint8_t *)buf);
+
+        // Add the pseudo-header                                        //
+        sum += *(ip_src++);
+        sum += *ip_src;
+
+        sum += *(ip_dst++);
+        sum += *ip_dst;
+
+        sum += htons(IPPROTO_UDP);
+        sum += htons(length);
+
+        // Add the carries                                              //
+        while (sum >> 16)
+                sum = (sum & 0xFFFF) + (sum >> 16);
+
+        // Return the one's complement of sum                           //
+        return ( (uint16_t)(~sum)  );
+}
+
 int init_socket (int * sfds)
 {
 	int sfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
@@ -126,47 +251,38 @@ int send_l2_raw_message(unsigned int data_len, char * payload, char source_ip[32
 	//memcpy((char *)ethh->h_source, ifopt.ifr_hwaddr.sa_data, 6);
 	ethh->h_proto = htons(0x0800);
 
+	short int packet_size = sizeof (*iph) + sizeof (*udph) + data_len;
 	iph->ihl = 5;
 	iph->version = 4;
 	iph->tos = 0;
-	iph->tot_len = htons(sizeof (*iph) + sizeof (*udph) + data_len);
+	iph->tot_len = htons(packet_size);
 	iph->id = htons (54321); //Id of this packet
 	iph->frag_off = 0;
-	iph->ttl = 1;
+	iph->ttl = 250;
 	iph->protocol = IPPROTO_UDP;
 	iph->check = 0;      //Set to 0 before calculating checksum
 	//iph->saddr = inet_addr (source_ip);    //Spoof the source ip address
 	struct in_addr saddr;
 	inet_aton (source_ip, &saddr);    //Spoof the source ip address
 	iph->saddr = saddr.s_addr;
-	iph->daddr = inet_addr (destination_ip); //sin->sin_addr.s_addr;
+	struct in_addr daddr;
+	inet_aton (destination_ip, &daddr);
+	iph->daddr = daddr.s_addr; //sin->sin_addr.s_addr;
 
+	char * packet = &frame[sizeof(*ethh)];
+	iph->check = csum ((unsigned short *) packet, sizeof(*iph));
+
+	short int datagram_size = sizeof(*udph) + data_len;
 	udph->source = htons (DHCP_PORT_CLI);
 	udph->dest = htons (DHCP_PORT_SRV);
-	udph->len = htons(L4_HDR_SIZE+data_len); //8 - udp header size
+	udph->len = htons(datagram_size); //8 - udp header size
 	udph->check = 0;
 
-	//struct pseudo_header psh;
-//	int psize = sizeof(struct pseudo_header) + sizeof(struct udphdr) + strlen(data);
-//	pseudogram = malloc(psize);
-//	memcpy(pseudogram, (char*) &psh, sizeof (struct pseudo_header));
-//	memcpy(pseudogram + sizeof(struct pseudo_header), udph, sizeof(struct udphdr) + strlen(data));
-//	psh.source_address = inet_addr (source_ip);
-//	psh.dest_address = sin.sin_addr.s_addr;
-//	psh.placeholder = 0;
-//	psh.protocol = IPPROTO_UDP;
-//	psh.udp_length = htons(sizeof(struct udphdr) + strlen(data) );
-//
-//	pseudogram = malloc(psize);
-//	memcpy(pseudogram , (char*) &psh , sizeof (struct pseudo_header));
-//	memcpy(pseudogram + sizeof(struct pseudo_header) , udph , sizeof(struct udphdr) + strlen(data));
-
-//	udph->check = htons(csum( (unsigned short*) pseudogram , psize));
-//	iph->check = csum ((unsigned short *) datagram, iph->tot_len);
+	char * datagram = &frame[sizeof(*ethh) + sizeof(*iph)];
+	//udph->check = htons(udp_csum(iph, udph, datagram_size));  // (unsigned short*) packet , datagram_size));
+	udph->check = udp_csum(datagram, datagram_size, saddr.s_addr, daddr.s_addr);
 
 	int ret;
-	//ret = sendto(send_sfd, frame, iph->tot_len,  0, (struct sockaddr *) &sin, sizeof (sin));
-
 	size_t total_len = sizeof (*ethh) + sizeof (*iph) + sizeof (*udph) + sizeof(data);
 	ret = sendto(send_sfd, &frame[0], total_len,  0, (struct sockaddr *) sin, sizeof (*sin));
 	printf("%d\n", ret);

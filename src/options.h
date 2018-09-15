@@ -11,6 +11,7 @@
 
 #define HTYPE 1
 #define HLEN 6
+#define PLEN 4
 
 #define TIMEOUT_DISCOVER_SEC 3
 #define TIMEOUT_REQUESTING_SEC 3
@@ -95,10 +96,18 @@ typedef struct
 
 typedef struct
 {
+    char code;
+    char len;
+    int data;
+} option_55;
+
+typedef struct
+{
 	int cookie;
     option_53 option_53;
     option_50 option_50;
     option_54 option_54;
+    option_55 option_55;
     char option_255;
 } options_Request;
 #pragma pack(pop)

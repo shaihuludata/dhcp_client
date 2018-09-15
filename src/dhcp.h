@@ -60,7 +60,7 @@ typedef struct
 //int common_overhead(char op, dhcp_ * data);
 
 unsigned int compose_discover(int xid);
-unsigned int compose_request(int xid, char * source_mac, void * buf);
+unsigned int compose_request(int xid, char * source_mac, void * buf, char req_ip[15], char req_srv[15]);
 
 //dhcp_ compose_discover(int a);
 //dhcp_ * dispatch_discover(void * arg);
