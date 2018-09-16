@@ -1,3 +1,5 @@
+#include "l2_raw.h"
+
 #define DHCP_PORT_SRV 67
 #define DHCP_PORT_CLI 68
 
@@ -26,11 +28,11 @@
 
 #define MAGIC_COOKIE_DHCP	1666417251
 
-typedef struct
-{
-	unsigned int len;
-	char * data;
-} message;
+//typedef struct
+//{
+//	unsigned int len;
+//	char * data;
+//} message;
 
 typedef struct
 {
@@ -61,6 +63,7 @@ typedef struct
 
 unsigned int compose_discover(int xid);
 unsigned int compose_request(int xid, char * source_mac, void * buf, char req_ip[15], char req_srv[15]);
+char dispatch_ack(message * M);
 
 //dhcp_ compose_discover(int a);
 //dhcp_ * dispatch_discover(void * arg);

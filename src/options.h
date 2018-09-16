@@ -110,4 +110,5 @@ typedef struct
     option_55 option_55;
     char option_255;
 } options_Request;
+
 #pragma pack(pop)

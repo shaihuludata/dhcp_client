@@ -1,6 +1,8 @@
 #include <arpa/inet.h> //inet_addr
 #include <string.h>
+#include <stdio.h>
 
+#include "l2_raw.h"
 #include "options.h"
 #include "dhcp.h"
 
@@ -91,9 +93,26 @@ unsigned int compose_request(int xid, char * source_mac, void * buf, char req_ip
 	size_t total_size = sizeof(*data) + sizeof(*options);
 	return total_size;
 }
-//
-//dhcp_ * dispatch_ack(void * arg)
-//{
-//	dhcp_ data = common_overhead(arg);
-//	return data;
-//}
+
+char dispatch_ack(message * M) {
+	char ret = 0;
+	struct opt {char T; char L; char *V;};
+	struct opt * opts[10];
+	//dhcp_ * data = (dhcp_ *) M->data;
+	char * options = M->data + sizeof(dhcp_) + sizeof(int);  // int - magic cookie
+	int num_of_opts = 0;
+	int opt_size = M->len - (sizeof(dhcp_) + sizeof(int));
+	printf("sdjfnjkfnjka %d\n", (int)sizeof(void));
+	for (int i=0; i < opt_size; ) {
+		struct opt opt;
+		opt.T = options[i];
+		opts[num_of_opts] = &opt;
+		if (opt.T == 0xFF) break;
+		opt.L = options[i+1];
+		opt.V = &options[i+2];
+		i += opt.L + sizeof(opt.T);
+		if ((opt.T == 53) && (opt.L == 1)) ret = *opt.V;
+	}
+	for (int i; i<10; i++) printf("%p\n", opts[i]);
+	return ret; //TODO исправить
+}
