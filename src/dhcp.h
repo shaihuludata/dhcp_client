@@ -34,15 +34,13 @@
 //	char * data;
 //} message;
 
-typedef struct
-{
+typedef struct {
     char code;
     char len;
     int data;
 } option;
 
-typedef struct
-{
+typedef struct {
     char op;
     char htype;
     char hlen;
@@ -61,9 +59,10 @@ typedef struct
 
 //int common_overhead(char op, dhcp_ * data);
 
-unsigned int compose_discover(int xid);
+unsigned int compose_discover(int xid, char * source_mac, void * buf, char req_ip[15], char req_srv[15]);
 unsigned int compose_request(int xid, char * source_mac, void * buf, char req_ip[15], char req_srv[15]);
-char dispatch_ack(message * M);
+int match_xid (char * data, int xid);
+char dispatch_ack(int len, char * data);
 
 //dhcp_ compose_discover(int a);
 //dhcp_ * dispatch_discover(void * arg);

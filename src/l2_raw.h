@@ -26,11 +26,15 @@ struct pseudo_header {
     u_int16_t udp_length;
 };
 
+int get_current_mac(char * interface_name, char * s_mac);
+int get_current_ip(char * interface_name, char * s_ip);
+
 int init_socket (int * sfds);
 //int deinit_socket(int sfds[3]);
 int send_l2_raw_message(int sfd, unsigned int data_len, char * payload, char source_ip[32], char destination_ip[32],
 		char interface_name[10], char source_mac[6], char destination_mac[6]);
 
-void * recv_l2_raw_message(int fd, message * M);
+//void * recv_l2_raw_message(int fd, message * M);
+void * recv_l2_raw_message(int fd, message * M, int (*matcher)(char *, int), int match_arg);
 
 #endif /* L2_RAW_H_ */

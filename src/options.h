@@ -14,8 +14,8 @@
 #define PLEN 4
 
 #define TIMEOUT_DISCOVER_SEC 3
-#define TIMEOUT_REQUESTING_SEC 3
-#define TIMEOUT_BOUND_SEC 3
+#define TIMEOUT_REQUESTING_SEC 10
+#define TIMEOUT_SELECTING_SEC 10
 
 #define IP_NULL "0.0.0.0"
 #define IP_BROAD "255.255.255.255"
@@ -44,13 +44,6 @@
 //    void * option_54;
 //} OH_Ack;
 //
-//
-///*
-// *  Code   Len        Subnet Mask
-// * +-----+-----+-----+-----+-----+-----+
-// * |  1  |  4  |  m1 |  m2 |  m3 |  m4 |
-// * +-----+-----+-----+-----+-----+-----+
-//*/
 //typedef struct
 //{
 //    char code = 1;
@@ -66,43 +59,43 @@
 //} option_3;
 
 #pragma pack(push, 1)
-typedef struct
-{
+typedef struct {
     char code;
     char len;
     int data;
 } option_50;
 
-typedef struct
-{
+typedef struct {
     char code;
     char len;
     unsigned int data;
 } option_51;
 
-typedef struct
-{
+typedef struct {
     char code;
     char len;
     char data;
 } option_53;
 
-typedef struct
-{
+typedef struct {
     char code;
     char len;
     int data;
 } option_54;
 
-typedef struct
-{
+typedef struct {
     char code;
     char len;
     int data;
 } option_55;
 
-typedef struct
-{
+typedef struct {
+    char code;
+    char len;
+    char data[7];
+} option_61;
+
+typedef struct {
 	int cookie;
     option_53 option_53;
     option_50 option_50;
@@ -111,4 +104,12 @@ typedef struct
     char option_255;
 } options_Request;
 
+typedef struct {
+	int cookie;
+    option_53 option_53;
+    option_61 option_61;
+    option_50 option_50;
+    option_55 option_55;
+    char option_255;
+} options_Discover;
 #pragma pack(pop)

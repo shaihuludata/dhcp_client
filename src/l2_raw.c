@@ -1,9 +1,10 @@
+#include <errno.h>
 #include <stdio.h> //printf
 #include <stdlib.h>
 #include <string.h> //memset
 #include <unistd.h>
 #include <stdlib.h>
-#include <errno.h>
+#include <time.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
 #include <sys/socket.h>
@@ -21,6 +22,7 @@
 #include "l2_raw.h"
 #include "dhcp.h"
 
+#define TIMEOUT_WAIT_MATCH_PACKET 3
 
 unsigned short csum(uint16_t *addr, short len)
 {
@@ -83,10 +85,48 @@ unsigned short udp_csum(const void * buff, size_t len, in_addr_t src_addr, in_ad
         return ( (uint16_t)(~sum)  );
 }
 
+int get_current_mac(char * interface_name, char * s_mac) {
+	int fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+	if (fd == -1) {
+		//socket creation failed, may be because of non-root privileges
+		perror("Failed to create raw socket");
+		exit(0);
+	}
+	struct ifreq ifopt;
+	memset(&ifopt, 0, sizeof(ifopt));
+	strcpy(ifopt.ifr_name, interface_name);
+	if (ioctl(fd, SIOCGIFHWADDR, &ifopt) == -1) {
+		perror("Failed to get hwaddr");//, interface_name);
+		exit(4);
+	}
+	close(fd);
+	strncpy(s_mac, ifopt.ifr_hwaddr.sa_data, HLEN);
+	return 1;
+}
+
+int get_current_ip(char * interface_name, char * s_ip) {
+	int fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+	if (fd == -1) {
+		perror("Failed to create raw socket");
+		exit(0);
+	}
+	struct ifreq ifopt;
+	memset(&ifopt, 0, sizeof(ifopt));
+	strcpy(ifopt.ifr_name, interface_name);
+
+	if (ioctl(fd, SIOCGIFADDR, &ifopt) == -1) {
+		perror("Failed to get ipaddr");  // , interface_name);
+		exit(4);
+	}
+	struct sockaddr_in * ipaddr = (struct sockaddr_in*)&ifopt.ifr_addr;
+	close(fd);
+	strcpy(s_ip, inet_ntoa(ipaddr->sin_addr));  // , PLEN);
+	return 1;
+}
+
 int init_socket (int * sfds) {
 	int sfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
 	if (sfd == -1) {
-		//socket creation failed, may be because of non-root privileges
 		perror("Failed to create raw socket");
 		exit(0);
 	}
@@ -202,47 +242,49 @@ int send_l2_raw_message(int sfd, unsigned int data_len, char * payload, char sou
 	return ret;
 }
 
-int match_dhcp(char * frame) {
-	struct ethhdr * ethh = (struct ethhdr *) &frame[0];
-	struct iphdr * iph = (struct iphdr *) &frame[L2_HDR_SIZE];
-	struct udphdr * udph = (struct udphdr *) &frame[L2_HDR_SIZE+L3_HDR_SIZE];
-	int all_headers = sizeof(*ethh)+sizeof(*iph)+sizeof(*udph);
-	printf("%d %d ", ntohs(udph->source), ntohs(udph->dest));
-	if ((ntohs(udph->source) == DHCP_PORT_SRV) && (ntohs(udph->dest) == DHCP_PORT_CLI)) {
-		printf("%s", "match\n");
-		return all_headers;
-	} else {
-		printf("%s", "not match\n");
-		return 0;
-	}
-}
-
 void analyze(message * M, void * data, void * frame, int len) {
-	printf("%s\n", "tuuc");
+//	printf("%s\n", "tuuc");
 }
 
-void * recv_l2_raw_message(int fd, message * M) {
+void * recv_l2_raw_message(int fd, message * M, int (*matcher)(char *, int), int match_arg) {
 	//unsigned int data_len, char * payload, char source_ip[32], char destination_ip[32],
 	//	  char interface_name[10], char source_mac[6], char destination_mac[6])
+	int data_offset;
 	char * data;
-	int offset = 0;
 	char * frame;
 	int len;
-	while (1) { //тут нужен таймер
+	clock_t start = clock();
+	clock_t stop;
+
+	struct ethhdr * ethh;
+	struct iphdr * iph;
+	struct udphdr * udph;
+
+	while (((stop-start)/40) < TIMEOUT_WAIT_MATCH_PACKET)  {
 		frame = malloc(MAX_ETH_F);
 		len = recvfrom(fd, frame, MAX_ETH_F, 0, NULL, NULL);
+
+		ethh = (struct ethhdr *) &frame[0];
+		iph = (struct iphdr *) &frame[L2_HDR_SIZE];
+		udph = (struct udphdr *) &frame[L2_HDR_SIZE+L3_HDR_SIZE];
+
 		printf("%d ", len);
-		offset = match_dhcp(frame);
-		if (offset > 0) {
-			data = &frame[offset];
+		data_offset = sizeof(*ethh) + sizeof(*iph) + sizeof(*udph);
+		if ((ntohs(udph->source) == DHCP_PORT_SRV) && (ntohs(udph->dest) == DHCP_PORT_CLI)) {
+			data = &frame[data_offset];
 			analyze(M, data, frame, len);
-			memcpy(M->data, data, len - offset);
+			if (matcher(data, match_arg)) {
+				analyze(M, data, frame, len);
+				memcpy(M->data, data, len - data_offset);
+				M->len = len;
+				free(frame);
+				break;
+			}
+		} else {
 			free(frame);
-			break;
 		}
-		free(frame);
+		stop = clock();
 	}
-	M->len = len;
 //	return &M;
 	return data; //надо переподумать о том, что тут возвращать
 }
