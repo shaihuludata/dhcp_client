@@ -9,6 +9,7 @@
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#include <sys/times.h>
 #include <linux/if_ether.h>
 #include <linux/if_packet.h>
 #include <netinet/ip.h>
@@ -242,50 +243,41 @@ int send_l2_raw_message(int sfd, unsigned int data_len, char * payload, char sou
 	return ret;
 }
 
-void analyze(message * M, void * data, void * frame, int len) {
+void analyze(void * data, void * frame, int len) {
 //	printf("%s\n", "tuuc");
 }
 
-void * recv_l2_raw_message(int fd, message * M, int (*matcher)(char *, int), int match_arg) {
-	//unsigned int data_len, char * payload, char source_ip[32], char destination_ip[32],
-	//	  char interface_name[10], char source_mac[6], char destination_mac[6])
+int recv_l2_raw_message(int fd, char * data, char * frame, int (*matcher)(char *, int), int match_arg, int timeout) {
 	int data_offset;
-	char * data;
-	char * frame;
-	int len;
-	clock_t start = clock();
-	clock_t stop = clock();
+	int len = 0;
+	struct tms b_buf, e_buf;
+	int start = times(&b_buf);
+	int stop = times(&e_buf);
 	int timer = 0;
 
 	struct ethhdr * ethh;
 	struct iphdr * iph;
 	struct udphdr * udph;
 
-	frame = malloc(MAX_ETH_F);
-	while (timer < TIMEOUT_WAIT_MATCH_PACKET)  {
+	while (timer < timeout)  {
 		memset(frame, 0, MAX_ETH_F);
 		len = recvfrom(fd, frame, MAX_ETH_F, 0, NULL, NULL);
+		if (len == 0) continue;
 
 		ethh = (struct ethhdr *) &frame[0];
 		iph = (struct iphdr *) &frame[L2_HDR_SIZE];
 		udph = (struct udphdr *) &frame[L2_HDR_SIZE+L3_HDR_SIZE];
 
-		printf("%d ", len);
 		data_offset = sizeof(*ethh) + sizeof(*iph) + sizeof(*udph);
 		if ((ntohs(udph->source) == DHCP_PORT_SRV) && (ntohs(udph->dest) == DHCP_PORT_CLI)) {
-			data = &frame[data_offset];
-			analyze(M, data, frame, len);
-			if (matcher(data, match_arg)) {
-				analyze(M, data, frame, len);
-				memcpy(M->data, data, len - data_offset);
-				M->len = len;
+			if (matcher(&frame[data_offset], match_arg)) {
+				analyze(data, frame, len);
+				memcpy(data, &frame[data_offset], len - data_offset);
 				break;
 			}
 		}
-		stop = clock();
-		timer = stop-start/40;
+		stop = times(&e_buf);
+		timer = (stop-start)/100;
 	}
-	free(frame);
-//	return &M;
-	return data; //надо переподумать о том, что тут возвращать
+	return len;
 }

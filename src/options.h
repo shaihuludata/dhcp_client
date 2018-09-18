@@ -6,8 +6,8 @@
 #define STATE_SELECTING		3
 #define STATE_REQUESTING	4
 #define STATE_BOUND			5
-#define STATE_REBINDING		6
-#define STATE_RENEWING		7
+#define STATE_RENEWING		6
+#define STATE_REBINDING		7
 
 #define HTYPE 1
 #define HLEN 6

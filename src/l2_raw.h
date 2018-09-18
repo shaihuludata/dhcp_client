@@ -35,6 +35,6 @@ int send_l2_raw_message(int sfd, unsigned int data_len, char * payload, char sou
 		char interface_name[10], char source_mac[6], char destination_mac[6]);
 
 //void * recv_l2_raw_message(int fd, message * M);
-void * recv_l2_raw_message(int fd, message * M, int (*matcher)(char *, int), int match_arg);
+int recv_l2_raw_message(int fd, char * data, char * frame, int (*matcher)(char *, int), int match_arg, int timeout);
 
 #endif /* L2_RAW_H_ */
