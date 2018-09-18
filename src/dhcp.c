@@ -131,7 +131,7 @@ char dispatch_ack(int len, char * data) {
 		i += opt.L + sizeof(opt.T);
 		if ((opt.T == 53) && (opt.L == 1)) ret = *opt.V;
 	}
-	for (int i; i<10; i++) printf("%p ", opts[i]);
+	//for (int i; i<10; i++) printf("%p ", opts[i]);
 	return ret; //TODO исправить
 }
 

@@ -107,7 +107,6 @@ int main(int argc, char * argv[]) {
 					start = clock();
 				}
 				free(data);
-				sleep(1);
 				break;
 			case STATE_REBOOTING:
 				M->data = malloc(PDU_DHCP_MAX);
@@ -128,48 +127,51 @@ int main(int argc, char * argv[]) {
 						//restart??
 						break;
 					default:
-						printf("Request timeout\n");
 						stop =  clock();
 						timer = (stop - start)/CPS; //CLOCKS_PER_SEC;
 						if (timer > TIMEOUT_REQUESTING_SEC) {
+							printf("Request timeout\n");
 							state = STATE_INIT;
 						}
 						break;
 				}
 				type_received = 0;
-				sleep(1);
 				break;
             case STATE_INIT:
             	//CLI --- DHCP Discover --> SRV
             	stop =  clock();
             	timer = (stop - start)/CPS; //CLOCKS_PER_SEC;
-            	if (timer >= timeout_wait_before_discover) {
-                	xid = rand();
-					data = malloc(PDU_DHCP_MAX);
-					m_len = compose_discover(xid, s_mac, data, s_ip, "0.0.0.0");
-					start = clock();
-					if (send_l2_raw_message(sfd, m_len, data, IP_NULL, IP_BROAD, interface_name, s_mac, d_mac_broadcast) < 0)
-						perror("Failed to send message");
-					else {
-						perror("Discover sent");
-						state = STATE_SELECTING;
+            	if (timer < timeout_wait_before_discover)
+            		break;
+				xid = rand();
+				data = malloc(PDU_DHCP_MAX);
+				m_len = compose_discover(xid, s_mac, data, s_ip, "0.0.0.0");
+				start = clock();
+
+				if (send_l2_raw_message(sfd, m_len, data, IP_NULL, IP_BROAD, interface_name, s_mac, d_mac_broadcast) < 0) {
+					perror("Failed to send message");
 					free(data);
-					}
-				} else sleep(1);
-                break;
+					break;
+				}
+				perror("Discover sent");
+				state = STATE_SELECTING;
+				free(data);
+				break;
             case STATE_SELECTING:
-				//CLI <-- DHCP Offer    --- SRV
-				M->data = malloc(PDU_DHCP_MAX);
-				recv_l2_raw_message(sfd, M, match_xid, xid);
-				if (M->len > 0) {
+            	//CLI <-- DHCP Offer    --- SRV
+            	M->len = 0;
+            	M->data = malloc(PDU_DHCP_MAX);
+            	do {
+					while(M->len == 0) {
+						recv_l2_raw_message(sfd, M, match_xid, xid);
+					}
 					type_received = dispatch_ack(M->len, M->data);
-					free(M->data);
 					printf("type_received %d\n", type_received);
+
 					switch (type_received) {
 						case TYPE_DHCPOFFER:
 							//record lease, set T1, set T2
 							printf("offer received!\n");
-							printf("sending_request!\n");
 							xid = rand();
 							data = malloc(PDU_DHCP_MAX);
 							m_len = compose_request(xid, s_mac, data, s_ip, "192.168.0.1");
@@ -183,27 +185,16 @@ int main(int argc, char * argv[]) {
 							}
 							free(data);
 							break;
-						default:
-							stop =  clock();
-							timer = (stop - start)/CPS; //CLOCKS_PER_SEC;
-							if (timer > TIMEOUT_SELECTING_SEC) {
-								printf("Request timeout\n");
-								timeout_wait_before_discover = rand() % 1 + 10;
-								state = STATE_INIT;
-							}
-							break;
 					}
-				} else {
-					free(M->data);
 					stop =  clock();
 					timer = (stop - start)/CPS; //CLOCKS_PER_SEC;
-					if (timer > TIMEOUT_SELECTING_SEC) {
-						printf("Request timeout\n");
-						timeout_wait_before_discover = rand() % 1 + 10;
-						state = STATE_INIT;
-					}
-				}
-				sleep(1);
+            	} while ((timer < TIMEOUT_SELECTING_SEC) && (state == STATE_SELECTING));
+            	free(M->data);
+            	if (state == STATE_SELECTING) {
+					printf("Request timeout\n");
+					timeout_wait_before_discover = rand() % 1 + 10;
+					state = STATE_INIT;
+            	}
 				break;
             case STATE_REQUESTING:
             	//CLI --- DHCP Request  --> SRV
@@ -243,7 +234,6 @@ int main(int argc, char * argv[]) {
             			}
             			break;
 				}
-            	sleep(1);
                 break;
             case STATE_BOUND:
             	//check if
@@ -255,7 +245,6 @@ int main(int argc, char * argv[]) {
             		//send dhcp_request to leasing_server
             	}
             	//DHCPOFFER, DHCPACK, DHCPNAK/Discard
-            	sleep(1);
                 break;
             case STATE_REBINDING:
 				M->data = malloc(PDU_DHCP_MAX);
@@ -283,7 +272,6 @@ int main(int argc, char * argv[]) {
 						}
 						break;
 				}
-				sleep(1);
                 break;
             case STATE_RENEWING:
             	xid = rand();
@@ -297,44 +285,44 @@ int main(int argc, char * argv[]) {
 				}
 				free(data);
 
-				M->data = malloc(PDU_DHCP_MAX);
-				recv_l2_raw_message(sfd, M, match_xid, xid);
-				type_received = dispatch_ack(M->len, M->data);
-				free(M->data);
+				while ((timer < T2) && (state == STATE_RENEWING)) {
+					M->data = malloc(PDU_DHCP_MAX);
+					recv_l2_raw_message(sfd, M, match_xid, xid);
+					type_received = dispatch_ack(M->len, M->data);
+					free(M->data);
 
-				switch (type_received) {
-					case TYPE_DHCPACK:
-						//record lease, set T1, set T2
-						state = STATE_BOUND;
-						start = clock();
-						break;
-					case TYPE_DHCPNAK:
-						state = STATE_INIT;
-						//halt network???
-						break;
-					default:
-						stop =  clock();
-						timer = (stop - start)/CPS; //CLOCKS_PER_SEC;
-						if (timer > T2) {
-							//broadcast DHCPREQUEST
-							xid = rand();
-							data = malloc(PDU_DHCP_MAX);
-							m_len = compose_request(xid, s_mac, data, s_ip, "192.168.0.1");
-							if (send_l2_raw_message(sfd, m_len, data, IP_NULL, IP_BROAD, interface_name, s_mac, d_mac_broadcast) < 0)
-								perror("Failed to send message");
-							else {
-								perror("Request sent");
-								start = clock();
-							}
-							free(data);
-
-							state = STATE_REBINDING;
-						}
-						break;
+					switch (type_received) {
+						case TYPE_DHCPACK:
+							//record lease, set T1, set T2
+							state = STATE_BOUND;
+							start = clock();
+							break;
+						case TYPE_DHCPNAK:
+							state = STATE_INIT;
+							//halt network???
+							break;
+						default:
+							printf("type received %d\n", type_received);
+							break;
+					stop =  clock();
+					timer = (stop - start)/CPS; //CLOCKS_PER_SEC;
+					}
 				}
-				sleep(1);
+				//broadcast DHCPREQUEST
+				xid = rand();
+				data = malloc(PDU_DHCP_MAX);
+				m_len = compose_request(xid, s_mac, data, s_ip, "192.168.0.1");
+				if (send_l2_raw_message(sfd, m_len, data, IP_NULL, IP_BROAD, interface_name, s_mac, d_mac_broadcast) < 0)
+					perror("Failed to send message");
+				else {
+					perror("Request sent");
+					start = clock();
+				}
+				free(data);
+				state = STATE_REBINDING;
                 break;
         }
+        sleep(1);
     }
     free(M);
     return 1;

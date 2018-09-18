@@ -22,7 +22,7 @@
 #include "l2_raw.h"
 #include "dhcp.h"
 
-#define TIMEOUT_WAIT_MATCH_PACKET 3
+#define TIMEOUT_WAIT_MATCH_PACKET 5
 
 unsigned short csum(uint16_t *addr, short len)
 {
@@ -254,14 +254,16 @@ void * recv_l2_raw_message(int fd, message * M, int (*matcher)(char *, int), int
 	char * frame;
 	int len;
 	clock_t start = clock();
-	clock_t stop;
+	clock_t stop = clock();
+	int timer = 0;
 
 	struct ethhdr * ethh;
 	struct iphdr * iph;
 	struct udphdr * udph;
 
-	while (((stop-start)/40) < TIMEOUT_WAIT_MATCH_PACKET)  {
-		frame = malloc(MAX_ETH_F);
+	frame = malloc(MAX_ETH_F);
+	while (timer < TIMEOUT_WAIT_MATCH_PACKET)  {
+		memset(frame, 0, MAX_ETH_F);
 		len = recvfrom(fd, frame, MAX_ETH_F, 0, NULL, NULL);
 
 		ethh = (struct ethhdr *) &frame[0];
@@ -277,14 +279,13 @@ void * recv_l2_raw_message(int fd, message * M, int (*matcher)(char *, int), int
 				analyze(M, data, frame, len);
 				memcpy(M->data, data, len - data_offset);
 				M->len = len;
-				free(frame);
 				break;
 			}
-		} else {
-			free(frame);
 		}
 		stop = clock();
+		timer = stop-start/40;
 	}
+	free(frame);
 //	return &M;
 	return data; //надо переподумать о том, что тут возвращать
 }
