@@ -6,11 +6,9 @@
 #include "options.h"
 #include "dhcp.h"
 
-//int common_overhead(char op, dhcp_ * data) {
-//	return 1;
-//}
+struct opt {char T; char L; char *V;};
 
-unsigned int compose_discover(int xid, char * source_mac, void * buf, char req_ip[4], char req_srv[15])
+unsigned int compose_discover(int xid, char * source_mac, void * buf, char req_ip[15], char req_srv[15])
 {
 	dhcp_ * data = (dhcp_ *) buf;
 
@@ -54,13 +52,7 @@ unsigned int compose_discover(int xid, char * source_mac, void * buf, char req_i
     return total_size;
 }
 
-//int dispatch_offer(void * arg)
-//{
-//	dhcp_ data = common_overhead(arg);
-//	return data;
-//}
-
-unsigned int compose_request(int xid, char * source_mac, void * buf, char req_ip[4], char req_srv[15]) {
+unsigned int compose_request(int xid, char * source_mac, void * buf, char req_ip[15], char req_srv[15]) {
 	dhcp_ * data = (dhcp_ *) buf;
 
 	data->op = OP_REQUEST;
@@ -108,31 +100,63 @@ unsigned int compose_request(int xid, char * source_mac, void * buf, char req_ip
 int match_xid (char * data, int xid) {
 	dhcp_ * head = (dhcp_ *) data;
 	if (head->xid != xid) return 0;
-	//printf("xid %x\n", xid);//ntohs() != xid
 	return 1;
 }
 
-char dispatch_ack(int len, char * data) {
-	char ret = 0;
-	//dhcp_ * data = (dhcp_ *) M->data;
+int get_dhcp_o_value(int len, char * data, char type, void * value) {
 	char * options = data + sizeof(dhcp_) + sizeof(int);  // int - magic cookie
-	int num_of_opts = 0;
 
-	struct opt {char T; char L; char *V;};
-	struct opt * opts[10];
 	int opt_size = len - (sizeof(dhcp_) + sizeof(int));
 	for (int i=0; i < opt_size; ) {
 		struct opt opt;
 		opt.T = options[i];
-		opts[num_of_opts] = &opt;
-		if (opt.T == 255) break;
+		if (opt.T == 255) return 0;
 		opt.L = options[i+1];
 		opt.V = &options[i+2];
-		i += opt.L + sizeof(opt.T);
-		if ((opt.T == 53) && (opt.L == 1)) ret = *opt.V;
+		i += sizeof(opt.T) + sizeof(opt.L) + opt.L;
+		if (opt.T == type) {
+			memcpy(value, opt.V, opt.L);
+			return 1;
+		}
 	}
-	//for (int i; i<10; i++) printf("%p ", opts[i]);
-	return ret; //TODO исправить
+	return -1;
 }
+
+//char get_dhcp_o53_type(int len, char * data) {
+//	char ret = 0;
+//	char * options = data + sizeof(dhcp_) + sizeof(int);  // int - magic cookie
+//
+//	struct opt {char T; char L; char *V;};
+//	int opt_size = len - (sizeof(dhcp_) + sizeof(int));
+//	for (int i=0; i < opt_size; ) {
+//		struct opt opt;
+//		opt.T = options[i];
+//		if (opt.T == 255) break;
+//		opt.L = options[i+1];
+//		opt.V = &options[i+2];
+//		i += opt.L + sizeof(opt.T);
+//		if ((opt.T == 53) && (opt.L == 1)) ret = *opt.V;
+//	}
+//	return ret;
+//}
+//
+//unsigned int get_dhcp_o51_lease(int len, char * data) {
+//	char ret = 0;
+//
+//	char * options = data + sizeof(dhcp_) + sizeof(int);  // int - magic cookie
+//
+//	struct opt {char T; char L; char *V;};
+//	int opt_size = len - (sizeof(dhcp_) + sizeof(int));
+//	for (int i=0; i < opt_size; ) {
+//		struct opt opt;
+//		opt.T = options[i];
+//		if (opt.T == 255) break;
+//		opt.L = options[i+1];
+//		opt.V = &options[i+2];
+//		i += opt.L + sizeof(opt.T);
+//		if ((opt.T == 51) && (opt.L == 1)) ret = *opt.V;
+//	}
+//	return ret;
+//}
 
 //char dispatch_offer(message * M, int xid) {

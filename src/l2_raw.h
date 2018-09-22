@@ -8,6 +8,15 @@
 #ifndef L2_RAW_H_
 #define L2_RAW_H_
 
+#define HTYPE 1
+#define HLEN 6
+#define PLEN 4
+
+#define MAC_BCAST {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+#define IP_MAX_STR_SIZE 15
+#define IP_NULL "0.0.0.0"
+#define IP_BROAD "255.255.255.255"
+
 #define MAX_ETH_F	1514
 #define L2_HDR_SIZE 14
 #define L3_HDR_SIZE 20
