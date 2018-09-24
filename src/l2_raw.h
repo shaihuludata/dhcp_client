@@ -37,6 +37,7 @@ struct pseudo_header {
 
 int get_current_mac(char * interface_name, char * s_mac);
 int get_current_ip(char * interface_name, char * s_ip);
+int set_current_ip(char * interface_name, char * s_ip, char * mask);
 
 int init_socket (int * sfds);
 //int deinit_socket(int sfds[3]);

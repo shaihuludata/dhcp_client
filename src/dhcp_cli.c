@@ -369,6 +369,7 @@ int main(int argc, char ** argv) {
 			if (inet_addr(s_ip) != lease->client_ip) {
 				printf("current address doesn't match\n");
 				//add addr
+				//set_current_ip(char * interface_name, char * s_ip, char * mask)
 			}
 			stop = times(&e_buf);
 			timer = (stop - start)/CPS;
