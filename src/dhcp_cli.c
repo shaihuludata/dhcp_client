@@ -57,8 +57,11 @@ int main(int argc, char ** argv) {
 	int daemonize = 1;
 	char * s_ip = malloc(IP_MAX_STR_SIZE);
 	char * d_ip = malloc(IP_MAX_STR_SIZE);
+	char * cur_addr = malloc(IP_MAX_STR_SIZE);
+	char * cur_mask = malloc(IP_MAX_STR_SIZE);
 	char * interface_name = malloc(10);
 	int interface_set = 0;
+	int yiaddr = 0;
 	int s_ip_set = 0;
 	int d_ip_set = 0;
 
@@ -244,7 +247,7 @@ int main(int argc, char ** argv) {
 		m_len = compose_discover(xid, s_mac, data, s_ip, IP_NULL);
 		if (send_l2_raw_message(sfd, m_len, data, IP_NULL, IP_BROAD,
 				interface_name, s_mac, d_mac) < 0) {
-			perror("Failed to send message");
+			perror("Failed to send Discover");
 			return STATE_INIT;
 		} else {
 			perror("Discover sent");
@@ -264,6 +267,7 @@ int main(int argc, char ** argv) {
 			type_received = (*(char *) option_value);
 			switch (type_received) {
 				case TYPE_DHCPOFFER:
+					printf("\t <--- offer received!\n");
 					get_dhcp_o_value(m_len, data, OPT58, option_value);
 					if (debug == DBG10)
 						T1 = 5;
@@ -277,13 +281,23 @@ int main(int argc, char ** argv) {
 					lease->lease_time = (*(uint *) option_value);
 					get_dhcp_o_value(m_len, data, OPT54, option_value);
 					lease->server_ip = (*(uint *) option_value);
-					lease->client_ip = inet_addr(s_ip);
+					yiaddr = get_yiaddr(data);
+					lease->client_ip = yiaddr;
+					get_dhcp_o_value(m_len, data, OPT1, &lease->mask_ip);
+					get_dhcp_o_value(m_len, data, OPT3, &lease->router_ip);
+					get_dhcp_o_value(m_len, data, OPT28, &lease->broadcast_ip);
+					get_dhcp_o_value(m_len, data, OPT6, &lease->dns);
+
 					new_lease(lease, lease_filename);
 
 					struct in_addr addr;
 					addr.s_addr = lease->server_ip;
 					memcpy(d_ip, inet_ntoa(addr), IP_MAX_STR_SIZE);
-					printf("\t <--- offer received!\n");
+
+					struct in_addr s_addr;
+					s_addr.s_addr = lease->client_ip;
+					memcpy(s_ip, inet_ntoa(s_addr), IP_MAX_STR_SIZE);
+
 					xid = rand();
 					m_len = compose_request(xid, s_mac, data, s_ip, d_ip);
 					if (send_l2_raw_message(sfd, m_len, data, IP_NULL, IP_BROAD,
@@ -329,6 +343,7 @@ int main(int argc, char ** argv) {
 					T2 = ntohl((*(uint32_t *)option_value));
 					lease->renew_time = T1;
 					lease->rebind_time = T2;
+
 					get_dhcp_o_value(m_len, data, OPT51, option_value);
 					lease->lease_time = (*(uint *) option_value);
 					printf("\t <--- ACK received\n");
@@ -361,15 +376,26 @@ int main(int argc, char ** argv) {
     }
 
     int state_bound() {
-		//check if
 		memset(data, 0, PDU_DHCP_MAX);
-
 		while (timer < T1) {
+			memset(s_ip, 0, IP_MAX_STR_SIZE);
 			get_current_ip(interface_name, s_ip);
+			printf("s_ip %s, %d\n", s_ip, inet_addr(s_ip));
+			printf("cl_ip %d\n", lease->client_ip);
 			if (inet_addr(s_ip) != lease->client_ip) {
 				printf("current address doesn't match\n");
-				//add addr
-				//set_current_ip(char * interface_name, char * s_ip, char * mask)
+
+				struct in_addr addr;
+				addr.s_addr = lease->client_ip;
+				strncpy(cur_addr, inet_ntoa(addr), IP_MAX_STR_SIZE);
+				struct in_addr mask;
+				mask.s_addr = lease->mask_ip;
+				strncpy(cur_mask, inet_ntoa(mask), IP_MAX_STR_SIZE);
+
+				printf("Expected addr %s, but current is %s\n", cur_addr, s_ip);
+				printf("Expected mask %s, but current is ???\n", cur_mask);//, s_ip);
+
+				set_current_ip(interface_name, cur_addr, cur_mask);
 			}
 			stop = times(&e_buf);
 			timer = (stop - start)/CPS;

@@ -63,8 +63,9 @@ unsigned int compose_discover(int xid, char * source_mac, void * buf, char req_i
 unsigned int compose_request(int xid, char * source_mac, void * buf, char req_ip[15], char req_srv[15]);
 int match_xid (char * data, int xid);
 int get_dhcp_o_value(int len, char * data, char type, void * value);
-unsigned int 	get_dhcp_o51_lease(int m_len, char * data);
-char 			get_dhcp_o53_type(int len, char * data);
+int get_yiaddr (char * data);
+//unsigned int 	get_dhcp_o51_lease(int m_len, char * data);
+//char 			get_dhcp_o53_type(int len, char * data);
 
 
 //dhcp_ compose_discover(int a);

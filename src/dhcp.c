@@ -103,6 +103,11 @@ int match_xid (char * data, int xid) {
 	return 1;
 }
 
+int get_yiaddr (char * data) {
+	dhcp_ * head = (dhcp_ *) data;
+	return head->yiaddr;
+}
+
 int get_dhcp_o_value(int len, char * data, char type, void * value) {
 	char * options = data + sizeof(dhcp_) + sizeof(int);  // int - magic cookie
 

@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h> //memset
 #include <unistd.h>
-#include <stdlib.h>
 #include <time.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
@@ -117,42 +116,46 @@ int get_current_ip(char * interface_name, char * s_ip) {
 
 	if (ioctl(fd, SIOCGIFADDR, &ifopt) == -1) {
 		perror("Failed to get ipaddr");  // , interface_name);
-		exit(4);
+		return -1;
 	}
 	struct sockaddr_in * ipaddr = (struct sockaddr_in*)&ifopt.ifr_addr;
 	close(fd);
-	strcpy(s_ip, inet_ntoa(ipaddr->sin_addr));  // , PLEN);
+	strncpy(s_ip, inet_ntoa(ipaddr->sin_addr), IP_MAX_STR_SIZE);
 	return 1;
 }
 
 int set_current_ip(char * interface_name, char * s_ip, char * mask) {
-	//#include <sys/ioctl.h>
-	//#include <arpa/inet.h>
-	//#include <net/if.h>
-	//#include <string.h>
-	//
-	//int main(int argc, const char *argv[]) {
-	//    struct ifreq ifr;
-	//    const char * name = "eth1";
-	//    int fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
-	//
-	//    strncpy(ifr.ifr_name, name, IFNAMSIZ);
-	//
-	//    ifr.ifr_addr.sa_family = AF_INET;
-	//    inet_pton(AF_INET, "10.12.0.1", ifr.ifr_addr.sa_data + 2);
-	//    ioctl(fd, SIOCSIFADDR, &ifr);
-	//
-	//    inet_pton(AF_INET, "255.255.0.0", ifr.ifr_addr.sa_data + 2);
-	//    ioctl(fd, SIOCSIFNETMASK, &ifr);
-	//
-	//    ioctl(fd, SIOCGIFFLAGS, &ifr);
-	//    strncpy(ifr.ifr_name, name, IFNAMSIZ);
-	//    ifr.ifr_flags |= (IFF_UP | IFF_RUNNING);
-	//
-	//    ioctl(fd, SIOCSIFFLAGS, &ifr);
-	//
-	//    return 0;
-	//}
+	struct ifreq ifopt;
+	memset(&ifopt, 0, sizeof(ifopt));
+	struct sockaddr_in * ipaddr;  // = &ifopt.ifr_addr;
+
+	int fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
+	if (fd == -1) {
+		perror("Failed to create raw socket");
+		return -1;
+	}
+
+	strncpy(ifopt.ifr_name, interface_name, IFNAMSIZ);
+
+	ipaddr = (struct sockaddr_in *)&ifopt.ifr_addr;
+	ipaddr->sin_family = AF_INET;  // ifopt.ifr_addr.sa_family = AF_INET;
+
+	ipaddr->sin_addr.s_addr = inet_addr(s_ip);
+	ioctl(fd, SIOCSIFADDR, &ifopt);
+
+	ipaddr->sin_addr.s_addr = inet_addr(mask);  //inet_pton(AF_INET, mask, ifopt.ifr_addr.sa_data);
+	ioctl(fd, SIOCSIFNETMASK, &ifopt);
+
+	close(fd);
+	return 0;
+}
+
+int set_interface_up(char * interface_name) {
+//	ioctl(fd, SIOCGIFFLAGS, &ifopt);
+//	strncpy(ifopt.ifr_name, interface_name, IFNAMSIZ);
+//	ifopt.ifr_flags |= (IFF_UP | IFF_RUNNING);
+//	ioctl(fd, SIOCSIFFLAGS, &ifopt);
+	return 0;
 }
 
 int init_socket (int * sfds) {
